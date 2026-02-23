@@ -1,3 +1,4 @@
+# TEST FIXTURE - SANDWORM_MODE workflow IOC for detection testing
 name: quality
 on:
   push:
