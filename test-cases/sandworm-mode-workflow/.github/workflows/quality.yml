@@ -1,0 +1,12 @@
+name: quality
+on:
+  push:
+    branches: ["main"]
+
+jobs:
+  quality-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run compromised action
+        uses: ci-quality/code-quality-check@v1
