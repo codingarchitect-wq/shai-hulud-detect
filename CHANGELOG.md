@@ -5,6 +5,44 @@ All notable changes to the Shai-Hulud NPM Supply Chain Attack Detector will be d
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- **February 2026 SANDWORM_MODE Coverage**: Added 19 confirmed malicious package versions from Socket's SANDWORM_MODE campaign report:
+  - `claud-code:0.2.1`
+  - `cloude-code:0.2.1`
+  - `cloude:0.3.0`
+  - `crypto-locale:1.0.0`
+  - `crypto-reader-info:1.0.0`
+  - `detect-cache:1.0.0`
+  - `format-defaults:1.0.0`
+  - `hardhta:1.0.0`
+  - `locale-loader-pro:1.0.0`
+  - `naniod:1.0.0`
+  - `node-native-bridge:1.0.0`
+  - `opencraw:2026.2.17`
+  - `parse-compat:1.0.0`
+  - `rimarf:1.0.0`
+  - `scan-store:1.0.0`
+  - `secp256:1.0.0`
+  - `suport-color:1.0.1`
+  - `veim:2.46.2`
+  - `yarsg:18.0.1`
+- **SANDWORM_MODE Workflow IOC Detection**:
+  - Detects malicious GitHub Action usage of `ci-quality/code-quality-check@v1`
+  - Detects workflow IOC references tied to threat actor aliases (`official334`, `javaorg`) and `dist/propagate-core.js`
+  - Detects poisoned `quality.yml`/`quality.yaml` workflows when campaign IoCs are present
+- **SANDWORM_MODE Test Case**: Added `test-cases/sandworm-mode-workflow/` to validate workflow IOC detection.
+
+### Changed
+- **Package Count**: Expanded `compromised-packages.txt` from 1,681 to 1,700 confirmed package versions.
+- **Data Freshness**: Updated `compromised-packages.txt` metadata from "Last updated: November 2025" to "Last updated: February 2026".
+- **Documentation**: Updated `README.md` campaign scope and detection capabilities to include February 2026 SANDWORM_MODE indicators.
+
+### Security
+- Added high-confidence detection for the workflow propagation vector documented in:
+  - https://socket.dev/blog/sandworm-mode-npm-worm-ai-toolchain-poisoning
+
 ## [3.0.6] - 2026-01-09
 
 ### Added

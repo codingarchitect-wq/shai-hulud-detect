@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 
 # Shai-Hulud NPM Supply Chain Attack Detection Script
-# Detects indicators of compromise from September 2025 and November 2025 npm attacks
+# Detects indicators of compromise from supply chain attacks between
+# September 2025 and February 2026
 # Includes detection for "Shai-Hulud: The Second Coming" (fake Bun runtime attack)
 # Usage: ./shai-hulud-detector.sh <directory_to_scan>
 #
@@ -78,6 +79,7 @@ create_temp_dir() {
     touch "$TEMP_DIR/actions_secrets_files.txt"
     touch "$TEMP_DIR/obfuscated_exfil_files.txt"
     touch "$TEMP_DIR/discussion_workflows.txt"
+    touch "$TEMP_DIR/sandworm_mode_workflows.txt"
     touch "$TEMP_DIR/github_runners.txt"
     touch "$TEMP_DIR/malicious_hashes.txt"
     touch "$TEMP_DIR/destructive_patterns.txt"
@@ -755,6 +757,56 @@ check_new_workflow_patterns() {
                 echo "$file" >> "$TEMP_DIR/obfuscated_exfil_files.txt"
             fi
         done < "$TEMP_DIR/obfuscated_exfil_found.txt"
+    fi
+}
+
+# Function: check_sandworm_mode_workflows
+# Purpose: Detect February 2026 SANDWORM_MODE workflow propagation indicators
+# Args: $1 = scan_dir (directory to scan)
+# Modifies: $TEMP_DIR/sandworm_mode_workflows.txt (temp file)
+# Returns: Populates sandworm_mode_workflows.txt with paths to suspicious workflows
+check_sandworm_mode_workflows() {
+    local scan_dir=$1
+    print_status "$BLUE" "   Checking for SANDWORM_MODE workflow IOCs..."
+
+    # Create file list for valid workflow files
+    while IFS= read -r file; do
+        [[ -f "$file" ]] && echo "$file"
+    done < "$TEMP_DIR/github_workflows.txt" > "$TEMP_DIR/valid_sandworm_workflows.txt"
+
+    # Check if we have any workflow files
+    if [[ ! -s "$TEMP_DIR/valid_sandworm_workflows.txt" ]]; then
+        return 0
+    fi
+
+    # IOC 1: Malicious action usage
+    tr '\n' '\0' < "$TEMP_DIR/valid_sandworm_workflows.txt" | \
+        xargs -0 -I {} grep -l -E "uses:[[:space:]]*ci-quality/code-quality-check@v1|ci-quality/code-quality-check@v1" {} 2>/dev/null | \
+        while IFS= read -r file; do
+            echo "$file:SANDWORM_MODE malicious action usage (ci-quality/code-quality-check@v1)" >> "$TEMP_DIR/sandworm_mode_workflows.txt"
+        done || true
+
+    # IOC 2: Threat actor aliases and propagation references in workflow files
+    tr '\n' '\0' < "$TEMP_DIR/valid_sandworm_workflows.txt" | \
+        xargs -0 -I {} grep -li -E "official334|javaorg|dist/propagate-core\.js|official334@proton|javaorg@proton" {} 2>/dev/null | \
+        while IFS= read -r file; do
+            echo "$file:SANDWORM_MODE threat-actor IOC reference in workflow" >> "$TEMP_DIR/sandworm_mode_workflows.txt"
+        done || true
+
+    # IOC 3: Injected quality workflow file with campaign references
+    while IFS= read -r file; do
+        local workflow_file
+        workflow_file=$(basename "$file")
+        if [[ "$workflow_file" == "quality.yml" || "$workflow_file" == "quality.yaml" ]]; then
+            if grep -qiE "ci-quality/code-quality-check|official334|javaorg|dist/propagate-core\.js" "$file" 2>/dev/null; then
+                echo "$file:SANDWORM_MODE injected workflow pattern (quality.yml + campaign IOC)" >> "$TEMP_DIR/sandworm_mode_workflows.txt"
+            fi
+        fi
+    done < "$TEMP_DIR/valid_sandworm_workflows.txt"
+
+    # Deduplicate by full finding line
+    if [[ -s "$TEMP_DIR/sandworm_mode_workflows.txt" ]]; then
+        sort -u "$TEMP_DIR/sandworm_mode_workflows.txt" -o "$TEMP_DIR/sandworm_mode_workflows.txt"
     fi
 }
 
@@ -2290,6 +2342,7 @@ write_log_file() {
 
         # Discussion workflows, runners (extract file path before colon)
         [[ -s "$TEMP_DIR/discussion_workflows.txt" ]] && cut -d: -f1 "$TEMP_DIR/discussion_workflows.txt" || true
+        [[ -s "$TEMP_DIR/sandworm_mode_workflows.txt" ]] && cut -d: -f1 "$TEMP_DIR/sandworm_mode_workflows.txt" || true
         [[ -s "$TEMP_DIR/github_runners.txt" ]] && cut -d: -f1 "$TEMP_DIR/github_runners.txt" || true
 
         # Destructive patterns (extract file path before colon)
@@ -2473,6 +2526,18 @@ generate_report() {
             show_file_preview "$file" "HIGH RISK: Discussion workflow - Enables arbitrary command execution via GitHub discussions"
             high_risk=$((high_risk+1))
         done < "$TEMP_DIR/discussion_workflows.txt"
+    fi
+
+    if [[ -s "$TEMP_DIR/sandworm_mode_workflows.txt" ]]; then
+        print_status "$RED" "🚨 HIGH RISK: February 2026 SANDWORM_MODE workflow indicators detected:"
+        while IFS= read -r line; do
+            local file="${line%%:*}"
+            local reason="${line#*:}"
+            echo "   - $file"
+            echo "     Reason: $reason"
+            show_file_preview "$file" "HIGH RISK: Workflow contains SANDWORM_MODE campaign IOC"
+            high_risk=$((high_risk+1))
+        done < "$TEMP_DIR/sandworm_mode_workflows.txt"
     fi
 
     if [[ -s "$TEMP_DIR/github_runners.txt" ]]; then
@@ -3042,8 +3107,9 @@ main() {
     print_stage_complete "Repository analysis"
 
     # Advanced pattern detection
-    print_status "$ORANGE" "[Stage 5/6] Advanced detection (discussions, runners, destructive)"
+    print_status "$ORANGE" "[Stage 5/6] Advanced detection (discussions, sandworm, runners, destructive)"
     check_discussion_workflows "$scan_dir"
+    check_sandworm_mode_workflows "$scan_dir"
     check_github_runners "$scan_dir"
     check_destructive_patterns "$scan_dir"
     check_preinstall_bun_patterns "$scan_dir"
